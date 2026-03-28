@@ -445,6 +445,138 @@
     }
     .beat-tip b { color: #92400E; }
 
+    /* --- Story Generator & Regen CSS --- */
+    .planner-header-actions {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 32px;
+      width: 100%;
+    }
+    .btn-generate-main {
+      background-color: var(--accent-gold);
+      color: #000;
+      font-size: 16px;
+      font-weight: 700;
+      padding: 12px 24px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(197, 165, 90, 0.3);
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .btn-generate-main:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(197, 165, 90, 0.4);
+    }
+    .btn-generate-main:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .movie-idea-collapse {
+      width: 100%;
+      max-width: 800px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .movie-idea-header {
+      padding: 12px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+      user-select: none;
+      font-weight: 600;
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+    .movie-idea-header:hover { background: rgba(0,0,0,0.02); }
+    .movie-idea-content {
+      padding: 0 20px 20px 20px;
+      display: none;
+    }
+    .movie-idea-collapse.open .movie-idea-content { display: block; }
+
+    /* Modal Styles */
+    .story-modal {
+      background: var(--bg-primary);
+      width: 600px;
+      max-width: 95vw;
+      border-radius: 12px;
+      padding: 32px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.3);
+    }
+    .genre-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .genre-pill {
+      padding: 6px 14px;
+      border-radius: 20px;
+      border: 1px solid var(--border-color);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      background: var(--bg-primary);
+    }
+    .genre-pill:hover { border-color: var(--accent-gold); }
+    .genre-pill.selected {
+      background: var(--accent-gold);
+      border-color: var(--accent-gold);
+      color: #000;
+    }
+
+    /* Regen UI */
+    .btn-regen-small {
+      font-size: 11px;
+      padding: 4px 8px;
+      background: rgba(0,0,0,0.05);
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .btn-regen-small:hover { background: rgba(0,0,0,0.1); }
+    
+    .regen-form {
+      background: #fdfdfd;
+      border: 1px solid var(--accent-gold);
+      border-radius: 6px;
+      padding: 12px;
+      display: none;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .regen-form.open { display: flex; }
+    
+    /* Animations */
+    @keyframes goldFlash {
+      0% { border-color: var(--border-color); box-shadow: none; }
+      50% { border-color: var(--accent-gold); box-shadow: 0 0 15px rgba(197, 165, 90, 0.5); }
+      100% { border-color: var(--border-color); box-shadow: none; }
+    }
+    .beat-card.populating {
+      animation: goldFlash 0.8s ease;
+    }
+
+
     /* --- Phase 15: Mobile Responsiveness --- */
     @media (max-width: 768px) {
       .nav-logo { display: none; }
@@ -553,6 +685,20 @@
     }
     .btn-seed:hover { opacity: 0.9; }
     .seed-status { font-size: 11px; text-align: center; margin-top: 4px; color: #666; }
+
+    /* Spinner Animation */
+    .spinner {
+      width: 14px;
+      height: 14px;
+      border: 2px solid rgba(0,0,0,0.1);
+      border-top-color: #000;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      display: inline-block;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
 
     /* --- Projects Dashboard CSS --- */
     .projects-container {
@@ -727,7 +873,6 @@
             2. Don't worry about structure yet.<br>
             3. When you're ready, click below to see how your vision fits into a 15-beat screenplay structure.
           </div>
-          <button class="btn-seed" id="btn-seed-story">✨ Seed My Story →</button>
           <div id="seed-status" class="seed-status"></div>
           
           <div style="flex:1"></div>
@@ -879,6 +1024,47 @@
       </div>
       <div class="modal-actions">
         <button class="btn-cancel" id="btn-settings-close">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Story Generator Modal -->
+  <div class="modal-overlay" id="story-modal-overlay">
+    <div class="story-modal">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+        <div>
+          <div class="modal-header" style="margin-bottom:4px;">Describe Your Movie</div>
+          <p style="font-size:13px; color:var(--text-secondary); max-width:480px;">
+            Tell me your movie idea in plain English. The more detail you give, the better your outline will be. Include who your main character is, what they want, and what's standing in their way.
+          </p>
+        </div>
+        <button class="btn-icon" id="btn-close-story-modal" style="color:var(--text-primary); font-size:24px;">✕</button>
+      </div>
+
+      <textarea id="story-input-text" rows="8" style="width:100%; padding:16px; border:1px solid var(--border-color); border-radius:8px; font-family:var(--font-ui); font-size:14px; resize:none;" 
+        placeholder="Example: A burned-out high school teacher discovers that the quiet janitor at her school is actually a retired CIA operative hiding from his past. When assassins show up at the school during a lockdown drill, she has to team up with him to protect the students — and discovers she's braver than she ever thought."></textarea>
+
+      <div>
+        <div class="modal-input-group" style="margin-bottom:8px;"><label>Genre (Optional)</label></div>
+        <div class="genre-grid">
+          <div class="genre-pill" data-genre="Action">Action</div>
+          <div class="genre-pill" data-genre="Comedy">Comedy</div>
+          <div class="genre-pill" data-genre="Drama">Drama</div>
+          <div class="genre-pill" data-genre="Horror">Horror</div>
+          <div class="genre-pill" data-genre="Thriller">Thriller</div>
+          <div class="genre-pill" data-genre="Sci-Fi">Sci-Fi</div>
+          <div class="genre-pill" data-genre="Romance">Romance</div>
+          <div class="genre-pill" data-genre="Mystery">Mystery</div>
+        </div>
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:12px; margin-top:8px;">
+        <button class="btn-generate-main" id="btn-run-full-generation" style="width:100%; justify-content:center; height:50px;">
+          Generate Outline
+        </button>
+        <div id="api-key-warning" style="font-size:11px; color:#EF4444; text-align:center; display:none;">
+          Set up your AI model in <a href="#" id="link-to-settings" style="color:#EF4444; font-weight:700;">Settings</a> first
+        </div>
       </div>
     </div>
   </div>
@@ -2038,17 +2224,49 @@ DO NOT include any conversational text, markdown formatting, or preamble. Just t
            board.innerHTML = '<div style="width:100%; text-align:center; padding-top:100px; color:#888;">Select or Create a Project to start planning.</div>';
            return;
         }
-        board.innerHTML = '';
+
+        // --- Add Generator Header ---
+        board.innerHTML = `
+          <div class="planner-header-actions">
+            <button class="btn-generate-main" id="btn-open-generator">
+              <span>✨ Generate Story Outline</span>
+            </button>
+            <div id="warn-replace-beats" style="font-size: 11px; color: #666; display:none;">
+              ⚠️ This will replace your current beat notes
+            </div>
+            
+            <div class="movie-idea-collapse" id="idea-collapse">
+              <div class="movie-idea-header">
+                <span>My Movie Idea</span>
+                <span id="idea-toggle-icon">▼</span>
+              </div>
+              <div class="movie-idea-content">
+                <textarea id="persist-movie-idea" style="width:100%; height:100px; padding:10px; border:1px solid var(--border-color); border-radius:4px; font-family:var(--font-ui); font-size:13px; resize:none;" placeholder="Describe your movie idea here..."></textarea>
+                <div style="margin-top:10px; font-size:11px; color:var(--text-secondary); display:flex; justify-content:space-between; align-items:center;">
+                  <span id="persist-genre-label">Genre: None</span>
+                  <button class="btn btn-secondary" style="font-size:10px; padding:4px 8px;" id="btn-edit-idea">Edit Overall Pitch</button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="board-container" id="board-columns-container" style="display:flex; gap:24px; min-height:80vh; width:100%;"></div>
+        `;
+
+        const colsContainer = document.getElementById('board-columns-container');
+        
         acts.forEach(act => {
           const col = document.createElement('div');
           col.className = 'board-column';
           col.dataset.act = act.id;
           col.innerHTML = `<div class="board-header">${act.title}</div><div class="board-cards" id="col-${act.id}"></div>`;
-          board.appendChild(col);
+          colsContainer.appendChild(col);
         });
 
         // Load saved order and texts
         let savedTexts = JSON.parse(localStorage.getItem(getPKey('beats'))) || {};
+        
+        const hasContent = Object.values(savedTexts).some(b => b.description && b.description.trim().length > 0);
+        if(hasContent) document.getElementById('warn-replace-beats').style.display = 'block';
 
         beatsData.forEach(b => {
           const colContainer = document.getElementById(`col-${b.act}`);
@@ -2058,7 +2276,7 @@ DO NOT include any conversational text, markdown formatting, or preamble. Just t
           card.draggable = true;
           card.id = b.id;
           
-          const beatData = savedTexts[b.id] || { goal: '', conflict: '', shift: '' };
+          const beatData = savedTexts[b.id] || { description: '' };
           card.innerHTML = `
             <div class="drag-handle"></div>
             <div class="beat-title-row">
@@ -2069,45 +2287,92 @@ DO NOT include any conversational text, markdown formatting, or preamble. Just t
             <div class="beat-tip"><b>💡 Pro-Tip:</b> ${b.tip}</div>
             
             <div class="beat-field-group">
-              <div class="beat-field-label">The Goal</div>
-              <textarea class="beat-textarea" data-field="goal" data-beat-id="${b.id}" placeholder="What does the character want?">${beatData.goal || ''}</textarea>
+              <div class="beat-field-label">Beat Notes</div>
+              <textarea class="beat-textarea" data-field="description" data-beat-id="${b.id}" style="min-height:80px;" placeholder="What happens in this beat?">${beatData.description || ''}</textarea>
             </div>
             
-            <div class="beat-field-group">
-              <div class="beat-field-label">The Conflict</div>
-              <textarea class="beat-textarea" data-field="conflict" data-beat-id="${b.id}" placeholder="What is stopping them?">${beatData.conflict || ''}</textarea>
+            <div class="beat-actions" style="justify-content: space-between; align-items: center;">
+              <button class="btn-regen-small" data-beat-id="${b.id}">🔄 Regen</button>
+              <button class="btn-send-script" data-beat-id="${b.id}">Draft Script →</button>
             </div>
-            
-            <div class="beat-field-group">
-              <div class="beat-field-label">The Shift</div>
-              <textarea class="beat-textarea" data-field="shift" data-beat-id="${b.id}" placeholder="How does the scene end differently?">${beatData.shift || ''}</textarea>
-            </div>
-            
-            <div class="beat-actions">
-              <button class="btn-send-script" data-beat-id="${b.id}">Draft into Screenplay →</button>
+
+            <div class="regen-form" id="regen-form-${b.id}">
+              <textarea class="regen-feedback" placeholder="What should change? (optional)" style="width:100%; height:60px; padding:8px; font-size:12px; border:1px solid var(--border-color); border-radius:4px; resize:none;"></textarea>
+              <div style="display:flex; justify-content:flex-end; gap:8px; align-items:center;">
+                <span class="regen-cancel" style="font-size:11px; color:#666; cursor:pointer;">Cancel</span>
+                <button class="btn btn-save btn-run-regen" style="padding:4px 12px; font-size:11px; background:var(--accent-gold); color:#000;">Regenerate</button>
+              </div>
             </div>
           `;
           colContainer.appendChild(card);
         });
 
         // Re-attach listeners after render
+        attachPlannerListeners();
+      }
+
+      function attachPlannerListeners() {
+        // Idea Collapse
+        const ideaHeader = document.querySelector('.movie-idea-header');
+        const ideaCollapse = document.getElementById('idea-collapse');
+        const ideaText = document.getElementById('persist-movie-idea');
+        
+        if(ideaHeader) {
+          ideaHeader.addEventListener('click', () => {
+            ideaCollapse.classList.toggle('open');
+            document.getElementById('idea-toggle-icon').textContent = ideaCollapse.classList.contains('open') ? '▲' : '▼';
+          });
+        }
+
+        if(ideaText) {
+          ideaText.value = localStorage.getItem(getPKey('movie_idea')) || '';
+          const genre = localStorage.getItem(getPKey('genre')) || 'None';
+          document.getElementById('persist-genre-label').textContent = 'Genre: ' + genre;
+          
+          ideaText.addEventListener('input', () => {
+            localStorage.setItem(getPKey('movie_idea'), ideaText.value);
+          });
+        }
+
+        document.getElementById('btn-open-generator')?.addEventListener('click', openStoryGeneratorModal);
+        document.getElementById('btn-edit-idea')?.addEventListener('click', openStoryGeneratorModal);
+
         document.querySelectorAll('.beat-textarea').forEach(ta => {
           ta.addEventListener('input', triggerBeatSave);
         });
 
+        // Regen Logic
+        document.querySelectorAll('.btn-regen-small').forEach(btn => {
+           btn.addEventListener('click', () => {
+              const id = btn.dataset.beatId;
+              document.getElementById(`regen-form-${id}`).classList.toggle('open');
+           });
+        });
+
+        document.querySelectorAll('.regen-cancel').forEach(span => {
+           span.addEventListener('click', () => {
+              span.closest('.regen-form').classList.remove('open');
+           });
+        });
+
+        document.querySelectorAll('.btn-run-regen').forEach(btn => {
+           btn.addEventListener('click', () => {
+              const card = btn.closest('.beat-card');
+              const feedback = card.querySelector('.regen-feedback').value;
+              handleSingleBeatRegen(card.id, feedback);
+           });
+        });
+
+        // Send to script
         document.querySelectorAll('.btn-send-script').forEach(btn => {
           btn.addEventListener('click', (e) => {
             triggerBeatSave();
             const card = e.target.closest('.beat-card');
             const title = card.querySelector('.beat-title').textContent.toUpperCase();
-            const goal = card.querySelector('[data-field="goal"]').value.trim();
-            const conflict = card.querySelector('[data-field="conflict"]').value.trim();
-            const shift = card.querySelector('[data-field="shift"]').value.trim();
+            const desc = card.querySelector('[data-field="description"]').value.trim();
             
             let combinedText = "INT. " + title + " - DAY\n\n";
-            if (goal) combinedText += "GOAL: " + goal + "\n";
-            if (conflict) combinedText += "CONFLICT: " + conflict + "\n";
-            if (shift) combinedText += "SHIFT: " + shift + "\n\n";
+            if (desc) combinedText += desc + "\n\n";
             combinedText += "Begin writing the action and dialogue here...";
             
             window.dispatchEvent(new CustomEvent('sendToScript', { 
@@ -2300,12 +2565,271 @@ DO NOT include any conversational text, markdown formatting, or preamble. Just t
          settingsModal.classList.remove('open');
       });
 
+      // --- Final Wipe Data logic ---
       btnWipeData.addEventListener('click', () => {
          if(confirm("Are you absolutely sure you want to erase ALL project data? This will delete all your movie scripts forever.")) {
             localStorage.clear();
             location.reload();
          }
       });
+
+      // --- Story Generator Modal Logic ---
+      function openStoryGeneratorModal() {
+        const modal = document.getElementById('story-modal-overlay');
+        modal.classList.add('open');
+        
+        // Reset state
+        const textarea = document.getElementById('story-input-text');
+        textarea.value = localStorage.getItem(getPKey('movie_idea')) || '';
+        
+        const savedGenre = localStorage.getItem(getPKey('genre')) || '';
+        document.querySelectorAll('.genre-pill').forEach(pill => {
+          pill.classList.toggle('selected', pill.dataset.genre === savedGenre);
+        });
+      }
+
+      function closeStoryGeneratorModal() {
+        document.getElementById('story-modal-overlay').classList.remove('open');
+      }
+
+      document.getElementById('btn-close-story-modal').addEventListener('click', closeStoryGeneratorModal);
+      
+      document.querySelectorAll('.genre-pill').forEach(pill => {
+        pill.addEventListener('click', () => {
+          const isSelected = pill.classList.contains('selected');
+          document.querySelectorAll('.genre-pill').forEach(p => p.classList.remove('selected'));
+          if(!isSelected) pill.classList.add('selected');
+        });
+      });
+
+      async function runFullOutlineGeneration() {
+        const textarea = document.getElementById('story-input-text');
+        const idea = textarea.value.trim();
+        const selectedGenrePill = document.querySelector('.genre-pill.selected');
+        const genre = selectedGenrePill ? selectedGenrePill.dataset.genre : '';
+        const btn = document.getElementById('btn-run-full-generation');
+        
+        if(!idea) {
+          alert('Please describe your movie idea first!');
+          return;
+        }
+
+        const apiKey = aiApiKeyInput.value.trim();
+        if(!apiKey) {
+          alert('Please set your AI API Key in Write -> AI Helper settings first!');
+          closeStoryGeneratorModal();
+          switchView('write');
+          aiPanel.classList.add('open');
+          return;
+        }
+
+        // Save progress
+        localStorage.setItem(getPKey('movie_idea'), idea);
+        localStorage.setItem(getPKey('genre'), genre);
+
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner"></span> Generating...';
+        textarea.disabled = true;
+
+        let prompt = `You are a Hollywood story consultant and screenwriting expert. The user will describe a movie idea. Your job is to break their idea into the Save the Cat 15-beat structure by Blake Snyder.
+
+Return ONLY a valid JSON object with keys "beat_1" through "beat_15". Each value should be 2-3 sentences describing what happens at that specific beat. Be specific — use character names, locations, and concrete plot events. Do not be vague or generic.
+
+The 15 beats in order are:
+1. Opening Image — the hero's world before change
+2. Theme Stated — someone hints at the story's deeper lesson
+3. Setup — introduce the hero, their world, their flaw
+4. Catalyst — the event that changes everything
+5. Debate — the hero hesitates about what to do
+6. Break Into Two — the hero commits and enters the new world
+7. B Story — a new relationship that carries the theme
+8. Fun and Games — the promise of the premise, the trailer moments
+9. Midpoint — false victory or false defeat, stakes raised
+10. Bad Guys Close In — things get harder, allies turn, pressure mounts
+11. All Is Lost — the lowest point, a whiff of death
+12. Dark Night of the Soul — grief and despair, then a new understanding
+13. Break Into Three — inspiration strikes, the hero sees the solution
+14. Finale — final battle, old world destroyed, new world created
+15. Final Image — opposite of the opening, proof the journey mattered
+
+Idea: "${idea}"
+${genre ? 'Genre: ' + genre + '. Make sure the tone, pacing, and story elements are appropriate for this genre.' : ''}
+
+CRITICAL: Return ONLY valid JSON. No commentary, no explanations, no markdown formatting, no code fences. Just the raw JSON object starting with { and ending with }.`;
+
+        try {
+          const model = aiModelSelect.value;
+          let resultText = "";
+
+          if (model === 'gemini') {
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${apiKey}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                contents: [{ parts: [{ text: prompt }] }]
+              })
+            });
+            if (!response.ok) throw new Error("API Error");
+            const data = await response.json();
+            resultText = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+          } else {
+            // Default to Claude if selected
+            const response = await fetch('https://api.anthropic.com/v1/messages', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'x-api-key': apiKey,
+                'anthropic-version': '2023-06-01',
+                'anthropic-dangerous-direct-browser-access': 'true'
+              },
+              body: JSON.stringify({
+                model: 'claude-3-5-sonnet-20241022',
+                max_tokens: 2048,
+                messages: [{ role: 'user', content: prompt }]
+              })
+            });
+            if (!response.ok) throw new Error("API Error");
+            const data = await response.json();
+            resultText = data.content?.[0]?.text || "";
+          }
+
+          const parsed = parseAIResponse(resultText);
+          populateBeatsWithAnimation(parsed);
+          closeStoryGeneratorModal();
+          
+        } catch(e) {
+          console.error(e);
+          alert('Something went wrong. Try again, or try rewording your idea.');
+        } finally {
+          btn.disabled = false;
+          btn.textContent = 'Generate Outline';
+          textarea.disabled = false;
+        }
+      }
+
+      function parseAIResponse(text) {
+        let cleaned = text.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+        const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          return JSON.parse(jsonMatch[0]);
+        }
+        throw new Error('No valid JSON found in response');
+      }
+
+      async function populateBeatsWithAnimation(beatData) {
+        const savedBeats = JSON.parse(localStorage.getItem(getPKey('beats')) || '{}');
+        
+        for (let i = 1; i <= 15; i++) {
+          const beatId = `beat_${i}`;
+          if (beatData[beatId]) {
+            savedBeats[beatId] = { description: beatData[beatId] };
+            
+            // Staggered UI update
+            setTimeout(() => {
+              const card = document.getElementById(beatId);
+              if (card) {
+                card.classList.add('populating');
+                const ta = card.querySelector('.beat-textarea');
+                ta.value = beatData[beatId];
+                setTimeout(() => card.classList.remove('populating'), 1000);
+              }
+            }, i * 150);
+          }
+        }
+        
+        localStorage.setItem(getPKey('beats'), JSON.stringify(savedBeats));
+        
+        // Final refresh of the persistence UI
+        const ideaText = document.getElementById('persist-movie-idea');
+        if(ideaText) ideaText.value = localStorage.getItem(getPKey('movie_idea')) || '';
+        const genre = localStorage.getItem(getPKey('genre')) || 'None';
+        const genreLabel = document.getElementById('persist-genre-label');
+        if(genreLabel) genreLabel.textContent = 'Genre: ' + genre;
+      }
+
+      async function handleSingleBeatRegen(beatId, feedback) {
+        const card = document.getElementById(beatId);
+        const btn = card.querySelector('.btn-run-regen');
+        const ta = card.querySelector('.beat-textarea');
+        const feedbackTa = card.querySelector('.regen-feedback');
+        
+        const apiKey = aiApiKeyInput.value.trim();
+        if(!apiKey) { alert('API Key required'); return; }
+
+        const originalIdea = localStorage.getItem(getPKey('movie_idea')) || "";
+        const currentBeats = JSON.parse(localStorage.getItem(getPKey('beats')) || '{}');
+        const beatName = beatsData.find(b => b.id === beatId)?.name || beatId;
+
+        let beatList = "";
+        for(let i=1; i<=15; i++) {
+          beatList += `${i}. ${beatsData[i-1].name}: ${currentBeats[`beat_${i}`]?.description || "(Empty)"}\n`;
+        }
+
+        btn.disabled = true;
+        btn.textContent = "Writing...";
+
+        const prompt = `You are a Hollywood story consultant. You previously created a 15-beat story outline for the following movie idea:
+
+"${originalIdea}"
+
+The current outline for all 15 beats is:
+${beatList}
+
+The user wants you to rewrite ONLY beat ${beatId.split('_')[1]} (${beatName}).
+${feedback ? 'The user\'s feedback: "' + feedback + '"' : 'Generate a different version of this beat that still fits the overall story.'}
+
+Return ONLY the new text for this single beat. 2-3 sentences. Be specific with character names and plot events. No commentary, no explanations, just the beat text.`;
+
+        try {
+          const model = aiModelSelect.value;
+          let resultText = "";
+          
+          if (model === 'gemini') {
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${apiKey}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                contents: [{ parts: [{ text: prompt }] }]
+              })
+            });
+            const data = await response.json();
+            resultText = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+          } else {
+            const response = await fetch('https://api.anthropic.com/v1/messages', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'x-api-key': apiKey,
+                'anthropic-version': '2023-06-01',
+                'anthropic-dangerous-direct-browser-access': 'true'
+              },
+              body: JSON.stringify({
+                model: 'claude-3-5-sonnet-20241022',
+                max_tokens: 512,
+                messages: [{ role: 'user', content: prompt }]
+              })
+            });
+            const data = await response.json();
+            resultText = data.content?.[0]?.text || "";
+          }
+
+          if(resultText) {
+            ta.value = resultText.trim();
+            triggerBeatSave();
+            card.querySelector('.regen-form').classList.remove('open');
+            feedbackTa.value = "";
+            card.classList.add('populating');
+            setTimeout(() => card.classList.remove('populating'), 1000);
+          }
+        } catch(e) {
+          alert('Failed to regenerate: ' + e.message);
+        } finally {
+          btn.disabled = false;
+          btn.textContent = "Regenerate";
+        }
+      }
+
+      document.getElementById('btn-run-full-generation').addEventListener('click', runFullOutlineGeneration);
 
     });
   </script>
