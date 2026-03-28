@@ -1096,39 +1096,111 @@
       { id: 'beat_15', act: '3', name: 'Final Image', target: '~Page 110', desc: "The opposite of the Opening Image. Show how much has changed and why the journey mattered.", tip: "This is the proof of the emotional journey. If Act 1 was dark, let Act 3 end with light." },
     ];
 
+    // --- Persistent Storage Wrapper (Capacitor Preferences) ---
+    const storageManager = {
+      cache: {},
+      async init() {
+        console.log("Initializing Persistent Storage...");
+        try {
+          const { keys } = await window.Capacitor.Plugins.Preferences.keys();
+          for (const key of keys) {
+            if (key.startsWith('scriptbuddy')) {
+              const { value } = await window.Capacitor.Plugins.Preferences.get({ key });
+              this.cache[key] = value;
+            }
+          }
+          
+          // Migration from localStorage if this is the first time using Preferences
+          if (Object.keys(this.cache).length === 0) {
+            console.log("No native data found. Checking for legacy localStorage data...");
+            for (let i = 0; i < localStorage.length; i++) {
+              const k = localStorage.key(i);
+              if (k && k.startsWith('scriptbuddy')) {
+                const v = localStorage.getItem(k);
+                this.cache[k] = v;
+                await window.Capacitor.Plugins.Preferences.set({ key: k, value: v });
+              }
+            }
+          }
+        } catch (e) {
+          console.warn("Capacitor Preferences not available, falling back to localStorage:", e);
+          // Fallback for browser development
+          for (let i = 0; i < localStorage.length; i++) {
+            const k = localStorage.key(i);
+            if (k && k.startsWith('scriptbuddy')) {
+              this.cache[k] = localStorage.getItem(k);
+            }
+          }
+        }
+      },
+      getItem(key) {
+        return this.cache[key] || null;
+      },
+      async setItem(key, value) {
+        this.cache[key] = value;
+        try {
+          await window.Capacitor.Plugins.Preferences.set({ key, value });
+        } catch (e) {
+          localStorage.setItem(key, value);
+        }
+      },
+      async removeItem(key) {
+        delete this.cache[key];
+        try {
+          await window.Capacitor.Plugins.Preferences.remove({ key });
+        } catch (e) {
+          localStorage.removeItem(key);
+        }
+      },
+      async clear() {
+        this.cache = {};
+        try {
+          await window.Capacitor.Plugins.Preferences.clear();
+        } catch (e) {}
+        localStorage.clear();
+      }
+    };
+
     // --- Multi-Project State ---
-    let projects = JSON.parse(localStorage.getItem('scriptbuddy_projects') || '[]');
-    let currentProjectId = localStorage.getItem('scriptbuddy_current_id') || null;
+    let projects = [];
+    let currentProjectId = null;
 
     function getPKey(baseKey) {
        if(!currentProjectId) return `scriptbuddy_${baseKey}`; // fallback
        return `scriptbuddy_v2_${currentProjectId}_${baseKey}`;
     }
 
-    function ensureMigration() {
+    async function ensureMigration() {
        // If projects exist, we're already on V2
        if(projects.length > 0) return;
        
        // Detect V1 data
-       const legacyScript = localStorage.getItem('scriptbuddy_script');
-       if(legacyScript || localStorage.getItem('scriptbuddy_beats')) {
+       const legacyScript = storageManager.getItem('scriptbuddy_script');
+       if(legacyScript || storageManager.getItem('scriptbuddy_beats')) {
           const newId = 'proj_' + Date.now();
           const firstProj = { id: newId, name: 'My First Screenplay', lastEdited: Date.now() };
           projects.push(firstProj);
           currentProjectId = newId;
           
           // Move data to new schema
-          localStorage.setItem(`scriptbuddy_v2_${newId}_script`, legacyScript || '');
-          localStorage.setItem(`scriptbuddy_v2_${newId}_beats`, localStorage.getItem('scriptbuddy_beats') || '{}');
-          localStorage.setItem(`scriptbuddy_v2_${newId}_vision`, localStorage.getItem('scriptbuddy_vision') || '{"title":"","text":""}');
-          localStorage.setItem(`scriptbuddy_v2_${newId}_titlepage`, localStorage.getItem('scriptbuddy_titlepage') || '{"title":"","author":"","contact":""}');
+          await storageManager.setItem(`scriptbuddy_v2_${newId}_script`, legacyScript || '');
+          await storageManager.setItem(`scriptbuddy_v2_${newId}_beats`, storageManager.getItem('scriptbuddy_beats') || '{}');
+          await storageManager.setItem(`scriptbuddy_v2_${newId}_vision`, storageManager.getItem('scriptbuddy_vision') || '{"title":"","text":""}');
+          await storageManager.setItem(`scriptbuddy_v2_${newId}_titlepage`, storageManager.getItem('scriptbuddy_titlepage') || '{"title":"","author":"","contact":""}');
           
-          localStorage.setItem('scriptbuddy_projects', JSON.stringify(projects));
-          localStorage.setItem('scriptbuddy_current_id', newId);
+          await storageManager.setItem('scriptbuddy_projects', JSON.stringify(projects));
+          await storageManager.setItem('scriptbuddy_current_id', newId);
        }
     }
 
-    document.addEventListener('DOMContentLoaded', () => {
+    // --- Initialization ---
+    async function initApp() {
+      await storageManager.init();
+      
+      projects = JSON.parse(storageManager.getItem('scriptbuddy_projects') || '[]');
+      currentProjectId = storageManager.getItem('scriptbuddy_current_id') || null;
+      
+      await ensureMigration();
       // --- All DOM Element References ---
       const saveStatus = document.getElementById('save-status-text');
       const saveDot = document.getElementById('save-status-dot');
@@ -1171,8 +1243,8 @@
       const board = document.getElementById('beat-board');
       
       // --- Application State ---
-      let stashItems = JSON.parse(localStorage.getItem(getPKey('stash')) || '[]');
-      let globalBucket = JSON.parse(localStorage.getItem('scriptbuddy_global_bucket') || '[]');
+      let stashItems = JSON.parse(storageManager.getItem(getPKey('stash')) || '[]');
+      let globalBucket = JSON.parse(storageManager.getItem('scriptbuddy_global_bucket') || '[]');
       let saveTimer, scriptSaveTimer, rebuildNavTimeout;
       let isNavigatorOpen = true;
       let activeTunerCharacter = null;
@@ -1201,19 +1273,19 @@
 
       // --- Phase: Vision Logic ---
       function loadVision() {
-         const savedVision = JSON.parse(localStorage.getItem(getPKey('vision')) || '{"title":"","text":""}');
+         const savedVision = JSON.parse(storageManager.getItem(getPKey('vision')) || '{"title":"","text":""}');
          visionTitle.value = savedVision.title || '';
          visionText.value = savedVision.text || '';
       }
       
-      function saveVision() {
+      async function saveVision() {
          if(!currentProjectId) return;
-         localStorage.setItem(getPKey('vision'), JSON.stringify({
+         await storageManager.setItem(getPKey('vision'), JSON.stringify({
             title: visionTitle.value,
             text: visionText.value
          }));
          const p = projects.find(x => x.id === currentProjectId);
-         if(p) { p.name = visionTitle.value || 'Untitled Script'; p.lastEdited = Date.now(); saveProjects(); renderProjects(); }
+         if(p) { p.name = visionTitle.value || 'Untitled Script'; p.lastEdited = Date.now(); await saveProjects(); renderProjects(); }
          
          saveStatus.textContent = 'Saving...';
          saveDot.className = 'status-dot';
@@ -1278,9 +1350,9 @@ DO NOT include any conversational text, markdown formatting, or preamble. Just t
             const generatedBeats = JSON.parse(text);
 
             // Merge with existing beats or overwrite
-            const currentBeats = JSON.parse(localStorage.getItem(getPKey('beats')) || '{}');
+            const currentBeats = JSON.parse(storageManager.getItem(getPKey('beats')) || '{}');
             const newBeats = { ...currentBeats, ...generatedBeats };
-            localStorage.setItem(getPKey('beats'), JSON.stringify(newBeats));
+            await storageManager.setItem(getPKey('beats'), JSON.stringify(newBeats));
             
             seedStatus.textContent = 'Success! Story seeded.';
             setTimeout(() => {
@@ -1297,8 +1369,8 @@ DO NOT include any conversational text, markdown formatting, or preamble. Just t
       // --- Projects Dashboard Logic ---
       // (Declarations moved to top)
 
-      function saveProjects() {
-         localStorage.setItem('scriptbuddy_projects', JSON.stringify(projects));
+      async function saveProjects() {
+         await storageManager.setItem('scriptbuddy_projects', JSON.stringify(projects));
       }
 
       function renderGlobalBucket() {
@@ -1384,10 +1456,10 @@ DO NOT include any conversational text, markdown formatting, or preamble. Just t
          });
       }
 
-      function selectProject(id) {
+      async function selectProject(id) {
          currentProjectId = id;
-         localStorage.setItem('scriptbuddy_current_id', id);
-         localStorage.setItem('scriptbuddy_active_view', 'write'); // Auto-switch to editor
+         await storageManager.setItem('scriptbuddy_current_id', id);
+         await storageManager.setItem('scriptbuddy_active_view', 'write'); // Auto-switch to editor
          location.reload(); 
       }
 
@@ -1399,12 +1471,12 @@ DO NOT include any conversational text, markdown formatting, or preamble. Just t
          selectProject(id);
       }
 
-      function deleteProject(id) {
+      async function deleteProject(id) {
          projects = projects.filter(x => x.id !== id);
-         saveProjects();
+         await saveProjects();
          if(currentProjectId === id) {
             currentProjectId = projects.length > 0 ? projects[0].id : null;
-            localStorage.setItem('scriptbuddy_current_id', currentProjectId || '');
+            await storageManager.setItem('scriptbuddy_current_id', currentProjectId || '');
          }
          renderProjects();
       }
@@ -1415,12 +1487,14 @@ DO NOT include any conversational text, markdown formatting, or preamble. Just t
       if(currentProjectId) {
          loadVision();
          // If we have a project but no view set, default to write
-         const savedView = localStorage.getItem('scriptbuddy_active_view');
-         if(!savedView || savedView === 'projects') {
-            switchView('write');
-         } else {
-            switchView(savedView);
-         }
+         (async () => {
+            const savedView = await storageManager.getItem('scriptbuddy_active_view');
+            if(savedView) {
+               switchView(savedView);
+            } else {
+               switchView('write');
+            }
+         })();
       } else {
          switchView('projects');
       }
@@ -1709,15 +1783,15 @@ DO NOT include any conversational text, markdown formatting, or preamble. Just t
         });
       }
 
-      function saveGlobalBucket() {
-         localStorage.setItem('scriptbuddy_global_bucket', JSON.stringify(globalBucket));
+      async function saveGlobalBucket() {
+         await storageManager.setItem('scriptbuddy_global_bucket', JSON.stringify(globalBucket));
          renderProjects();
       }
       // (Orphan logic removed)
 
-      function saveStash() {
+      async function saveStash() {
         if(!currentProjectId) return;
-        localStorage.setItem(getPKey('stash'), JSON.stringify(stashItems));
+        await storageManager.setItem(getPKey('stash'), JSON.stringify(stashItems));
         renderScrapbook();
       }
 
@@ -1760,7 +1834,7 @@ DO NOT include any conversational text, markdown formatting, or preamble. Just t
         if(currentStashText) {
           stashItems.unshift(currentStashText); 
           saveStash();
-          renderStash();
+          renderScrapbook();
           stashPanel.classList.add('open');
           
           stashTooltip.textContent = 'Saved!';
@@ -1774,7 +1848,7 @@ DO NOT include any conversational text, markdown formatting, or preamble. Just t
         }
       });
 
-      renderStash();
+      renderScrapbook();
 
       // --- Phase 7: Character Tracker & Dialogue Tuner Logic ---
       // (Declarations moved to top)
@@ -1902,7 +1976,7 @@ DO NOT include any conversational text, markdown formatting, or preamble. Just t
       // --- Phase 8: AI Logic ---
       // (Declarations moved to top)
 
-      let savedKeys = JSON.parse(localStorage.getItem('scriptbuddy_api_keys') || '{}');
+      let savedKeys = JSON.parse(storageManager.getItem('scriptbuddy_api_keys') || '{}');
       if (savedKeys[aiModelSelect.value]) {
         aiApiKeyInput.value = savedKeys[aiModelSelect.value];
       }
@@ -1911,9 +1985,9 @@ DO NOT include any conversational text, markdown formatting, or preamble. Just t
         aiApiKeyInput.value = savedKeys[aiModelSelect.value] || '';
       });
 
-      aiApiKeyInput.addEventListener('change', () => {
+      aiApiKeyInput.addEventListener('change', async () => {
         savedKeys[aiModelSelect.value] = aiApiKeyInput.value;
-        localStorage.setItem('scriptbuddy_api_keys', JSON.stringify(savedKeys));
+        await storageManager.setItem('scriptbuddy_api_keys', JSON.stringify(savedKeys));
       });
 
       btnRunAi.addEventListener('click', async () => {
@@ -2064,7 +2138,7 @@ DO NOT include any conversational text, markdown formatting, or preamble. Just t
         let yPos = T_MARGIN;
         let pageNum = 1;
         
-        const tpData = JSON.parse(localStorage.getItem(getPKey('titlepage')) || '{"title":"","author":"","contact":""}');
+        const tpData = JSON.parse(storageManager.getItem(getPKey('titlepage')) || '{"title":"","author":"","contact":""}');
         
         // Render Title Page if data exists
         if(tpData.title || tpData.author) {
@@ -2263,7 +2337,7 @@ DO NOT include any conversational text, markdown formatting, or preamble. Just t
         });
 
         // Load saved order and texts
-        let savedTexts = JSON.parse(localStorage.getItem(getPKey('beats'))) || {};
+        let savedTexts = JSON.parse(storageManager.getItem(getPKey('beats'))) || {};
         
         const hasContent = Object.values(savedTexts).some(b => b.description && b.description.trim().length > 0);
         if(hasContent) document.getElementById('warn-replace-beats').style.display = 'block';
@@ -2325,12 +2399,12 @@ DO NOT include any conversational text, markdown formatting, or preamble. Just t
         }
 
         if(ideaText) {
-          ideaText.value = localStorage.getItem(getPKey('movie_idea')) || '';
-          const genre = localStorage.getItem(getPKey('genre')) || 'None';
+          ideaText.value = storageManager.getItem(getPKey('movie_idea')) || '';
+          const genre = storageManager.getItem(getPKey('genre')) || 'None';
           document.getElementById('persist-genre-label').textContent = 'Genre: ' + genre;
           
-          ideaText.addEventListener('input', () => {
-            localStorage.setItem(getPKey('movie_idea'), ideaText.value);
+          ideaText.addEventListener('input', async () => {
+            await storageManager.setItem(getPKey('movie_idea'), ideaText.value);
           });
         }
 
@@ -2389,7 +2463,7 @@ DO NOT include any conversational text, markdown formatting, or preamble. Just t
         saveDot.className = 'status-dot saving';
         clearTimeout(saveTimer);
         
-        saveTimer = setTimeout(() => {
+        saveTimer = setTimeout(async () => {
           const dict = {};
           document.querySelectorAll('.beat-card').forEach(card => {
             const beatId = card.id;
@@ -2399,7 +2473,7 @@ DO NOT include any conversational text, markdown formatting, or preamble. Just t
             });
             dict[beatId] = fields;
           });
-          localStorage.setItem(getPKey('beats'), JSON.stringify(dict));
+          await storageManager.setItem(getPKey('beats'), JSON.stringify(dict));
           
           saveStatus.textContent = 'Saved ✓';
           saveDot.className = 'status-dot';
@@ -2411,14 +2485,13 @@ DO NOT include any conversational text, markdown formatting, or preamble. Just t
       // Send to Script logic
       document.querySelectorAll('.btn-send-script').forEach(btn => {
         btn.addEventListener('click', (e) => {
-          triggerSave();
-          console.log('Send to script clicked for', e.target.dataset.beatId);
+          triggerBeatSave();
           
           const card = e.target.closest('.beat-card');
           const title = card.querySelector('.beat-title').textContent.toUpperCase();
-          const goal = card.querySelector('[data-field="goal"]').value.trim();
-          const conflict = card.querySelector('[data-field="conflict"]').value.trim();
-          const shift = card.querySelector('[data-field="shift"]').value.trim();
+          const goal = card.querySelector('[data-field="goal"]')?.value.trim();
+          const conflict = card.querySelector('[data-field="conflict"]')?.value.trim();
+          const shift = card.querySelector('[data-field="shift"]')?.value.trim();
           
           let combinedText = "INT. " + title + " - DAY\n\n";
           if (goal) combinedText += "GOAL: " + goal + "\n";
@@ -2447,9 +2520,11 @@ DO NOT include any conversational text, markdown formatting, or preamble. Just t
         card.addEventListener('dragend', function() {
           this.classList.remove('dragging');
           draggedItem = null;
-          // save order (we will just log for now)
-          const newOrder = [...document.querySelectorAll('.beat-card')].map(c => c.id);
-          localStorage.setItem('scriptbuddy_beat_order', JSON.stringify(newOrder));
+          async function saveBeatOrder() {
+            const newOrder = Array.from(document.querySelectorAll('.beat-card')).map(c => c.id);
+            await storageManager.setItem('scriptbuddy_beat_order', JSON.stringify(newOrder));
+          }
+          saveBeatOrder();
         });
       });
 
@@ -2484,7 +2559,7 @@ DO NOT include any conversational text, markdown formatting, or preamble. Just t
       // --- Phase 13: Editor Persistence & Page Count ---
       function loadEditor() {
          if(!currentProjectId) return;
-         const savedScript = localStorage.getItem(getPKey('script'));
+         const savedScript = storageManager.getItem(getPKey('script'));
          if (savedScript) {
             editor.innerHTML = savedScript;
          }
@@ -2499,8 +2574,8 @@ DO NOT include any conversational text, markdown formatting, or preamble. Just t
          saveDot.className = 'status-dot saving';
          clearTimeout(scriptSaveTimer);
          
-         scriptSaveTimer = setTimeout(() => {
-            localStorage.setItem(getPKey('script'), editor.innerHTML);
+         scriptSaveTimer = setTimeout(async () => {
+            await storageManager.setItem(getPKey('script'), editor.innerHTML);
             saveStatus.textContent = 'Saved ✓';
             saveDot.className = 'status-dot';
             updatePageCount();
@@ -2526,7 +2601,7 @@ DO NOT include any conversational text, markdown formatting, or preamble. Just t
 
       function loadTitlePage() {
          if(!currentProjectId) return;
-         const data = JSON.parse(localStorage.getItem(getPKey('titlepage')) || '{"title":"","author":"","contact":""}');
+         const data = JSON.parse(storageManager.getItem(getPKey('titlepage')) || '{"title":"","author":"","contact":""}');
          tpTitle.value = data.title || '';
          tpAuthor.value = data.author || '';
          tpContact.value = data.contact || '';
@@ -2541,13 +2616,13 @@ DO NOT include any conversational text, markdown formatting, or preamble. Just t
          titleModal.classList.remove('open');
       });
 
-      btnTpSave.addEventListener('click', () => {
+      btnTpSave.addEventListener('click', async () => {
          const data = {
             title: tpTitle.value.trim(),
             author: tpAuthor.value.trim(),
             contact: tpContact.value.trim()
          };
-         localStorage.setItem(getPKey('titlepage'), JSON.stringify(data));
+         await storageManager.setItem(getPKey('titlepage'), JSON.stringify(data));
          titleModal.classList.remove('open');
       });
 
@@ -2566,9 +2641,9 @@ DO NOT include any conversational text, markdown formatting, or preamble. Just t
       });
 
       // --- Final Wipe Data logic ---
-      btnWipeData.addEventListener('click', () => {
+      btnWipeData.addEventListener('click', async () => {
          if(confirm("Are you absolutely sure you want to erase ALL project data? This will delete all your movie scripts forever.")) {
-            localStorage.clear();
+            await storageManager.clear();
             location.reload();
          }
       });
@@ -2580,9 +2655,9 @@ DO NOT include any conversational text, markdown formatting, or preamble. Just t
         
         // Reset state
         const textarea = document.getElementById('story-input-text');
-        textarea.value = localStorage.getItem(getPKey('movie_idea')) || '';
+        textarea.value = storageManager.getItem(getPKey('movie_idea')) || '';
         
-        const savedGenre = localStorage.getItem(getPKey('genre')) || '';
+        const savedGenre = storageManager.getItem(getPKey('genre')) || '';
         document.querySelectorAll('.genre-pill').forEach(pill => {
           pill.classList.toggle('selected', pill.dataset.genre === savedGenre);
         });
@@ -2624,8 +2699,8 @@ DO NOT include any conversational text, markdown formatting, or preamble. Just t
         }
 
         // Save progress
-        localStorage.setItem(getPKey('movie_idea'), idea);
-        localStorage.setItem(getPKey('genre'), genre);
+        await storageManager.setItem(getPKey('movie_idea'), idea);
+        await storageManager.setItem(getPKey('genre'), genre);
 
         btn.disabled = true;
         btn.innerHTML = '<span class="spinner"></span> Generating...';
@@ -2717,7 +2792,7 @@ CRITICAL: Return ONLY valid JSON. No commentary, no explanations, no markdown fo
       }
 
       async function populateBeatsWithAnimation(beatData) {
-        const savedBeats = JSON.parse(localStorage.getItem(getPKey('beats')) || '{}');
+        const savedBeats = JSON.parse(storageManager.getItem(getPKey('beats')) || '{}');
         
         for (let i = 1; i <= 15; i++) {
           const beatId = `beat_${i}`;
@@ -2737,12 +2812,12 @@ CRITICAL: Return ONLY valid JSON. No commentary, no explanations, no markdown fo
           }
         }
         
-        localStorage.setItem(getPKey('beats'), JSON.stringify(savedBeats));
+        await storageManager.setItem(getPKey('beats'), JSON.stringify(savedBeats));
         
         // Final refresh of the persistence UI
         const ideaText = document.getElementById('persist-movie-idea');
-        if(ideaText) ideaText.value = localStorage.getItem(getPKey('movie_idea')) || '';
-        const genre = localStorage.getItem(getPKey('genre')) || 'None';
+        if(ideaText) ideaText.value = storageManager.getItem(getPKey('movie_idea')) || '';
+        const genre = storageManager.getItem(getPKey('genre')) || 'None';
         const genreLabel = document.getElementById('persist-genre-label');
         if(genreLabel) genreLabel.textContent = 'Genre: ' + genre;
       }
@@ -2756,8 +2831,8 @@ CRITICAL: Return ONLY valid JSON. No commentary, no explanations, no markdown fo
         const apiKey = aiApiKeyInput.value.trim();
         if(!apiKey) { alert('API Key required'); return; }
 
-        const originalIdea = localStorage.getItem(getPKey('movie_idea')) || "";
-        const currentBeats = JSON.parse(localStorage.getItem(getPKey('beats')) || '{}');
+        const originalIdea = storageManager.getItem(getPKey('movie_idea')) || "";
+        const currentBeats = JSON.parse(storageManager.getItem(getPKey('beats')) || '{}');
         const beatName = beatsData.find(b => b.id === beatId)?.name || beatId;
 
         let beatList = "";
@@ -2831,7 +2906,10 @@ Return ONLY the new text for this single beat. 2-3 sentences. Be specific with c
 
       document.getElementById('btn-run-full-generation').addEventListener('click', runFullOutlineGeneration);
 
-    });
+    }
+
+    // --- Start the App ---
+    document.addEventListener('DOMContentLoaded', initApp);
   </script>
 </body>
 </html>
