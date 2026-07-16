@@ -4,6 +4,10 @@
   "description": "A personal screenwriting application inspired by Final Draft, Highland, and Fade In.",
   "main": "index.js",
   "scripts": {
+    "prep": "mkdir -p www && cp index.html manifest.json www/",
+    "sync": "npm run prep && npx cap sync android",
+    "apk": "npm run sync && cd android && ./gradlew assembleDebug",
+    "deploy": "npm run apk && adb install -r android/app/build/outputs/apk/debug/app-debug.apk && adb shell monkey -p com.scriptbuddy.app -c android.intent.category.LAUNCHER 1",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
